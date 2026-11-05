@@ -1,0 +1,60 @@
+#!/bin/bash
+# ==================================================================
+# ☁️ Azure Secure VNet Deployment Script
+# 👤 Autor: Marcelo Bugallo (DarthChelo)
+# 🛡️ Objetivo: Desplegar VNet segmentada con NSG restrictivo (Zero Trust)
+# ==================================================================
+
+# Variables del entorno
+RG_NAME="rg-security-sandbox"
+LOCATION="eastus"
+VNET_NAME="vnet-sandbox"
+VNET_PREFIX="10.0.0.0/16"
+SUBNET_FRONTEND="snet-frontend"
+PREFIX_FRONTEND="10.0.1.0/24"
+SUBNET_BACKEND="snet-backend"
+PREFIX_BACKEND="10.0.2.0/24"
+NSG_NAME="nsg-default-deny"
+
+echo "🚀 Iniciando despliegue del Sandbox en Azure..."
+
+# 1. Crear Resource Group
+az group create --name $RG_NAME --location $LOCATION
+
+# 2. Crear Network Security Group (NSG)
+az network nsg create \
+    --resource-group $RG_NAME \
+    --name $NSG_NAME \
+    --location $LOCATION
+
+# 3. Crear Regla NSG: Denegar todo el tráfico de entrada de Internet por defecto
+az network nsg rule create \
+    --resource-group $RG_NAME \
+    --nsg-name $NSG_NAME \
+    --name DenyAllInternetInbound \
+    --priority 4096 \
+    --source-address-prefixes Internet \
+    --destination-address-prefixes '*' \
+    --destination-port-ranges '*' \
+    --direction Inbound \
+    --access Deny \
+    --protocol '*'
+
+# 4. Crear Virtual Network (VNet) y Subred Frontend (Asignando el NSG)
+az network vnet create \
+    --resource-group $RG_NAME \
+    --name $VNET_NAME \
+    --address-prefix $VNET_PREFIX \
+    --subnet-name $SUBNET_FRONTEND \
+    --subnet-prefix $PREFIX_FRONTEND \
+    --network-security-group $NSG_NAME
+
+# 5. Crear Subred Backend (Asignando el NSG)
+az network vnet subnet create \
+    --resource-group $RG_NAME \
+    --vnet-name $VNET_NAME \
+    --name $SUBNET_BACKEND \
+    --address-prefixes $PREFIX_BACKEND \
+    --network-security-group $NSG_NAME
+
+echo "✅ Despliegue completado. Entorno de red seguro listo para laboratorios."
